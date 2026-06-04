@@ -2,32 +2,26 @@
 
 A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled single-nuclei RNA-seq data**, using bulk RNA-seq (or WGS/WES) for genotype calling.
 
-Built as a portfolio project demonstrating production-grade pipeline orchestration on AWS Batch with Seqera Platform monitoring.
-
 ---
 
 ## Overview
 
-Pooled single-nuclei sequencing allows multiple donors to be captured in a single 10X lane, reducing batch effects and cost. Demultiplexing assigns each cell barcode back to its donor of origin using genetic variants as a fingerprint.
-
-This pipeline automates the full workflow:
-
 ```
 Bulk RNA-seq FASTQs (N donors)          Pooled snRNA-seq FASTQs
-         │                                        │
-         ▼                                        ▼
+         |                                        |
+         v                                        v
    STAR alignment                         Cell Ranger count
-   GATK variant calling                         │
+   GATK variant calling                         |
    bcftools merge                         BAM + barcodes
-         │                                        │
-         └──────────────┬─────────────────────────┘
-                        ▼
-              Demuxafy ensemble
-          ┌───────┬────────┬──────────┐
-       Demuxlet  Vireo  Souporcell
-          └───────┴────────┴──────────┘
-                        │
-                 Barcode assignments
+         |                                        |
+         +------------------+---------------------+
+                            |
+                  Demuxafy ensemble
+              +----------+-------+-----------+
+           Demuxlet     Vireo   Souporcell
+              +----------+-------+-----------+
+                            |
+                   Barcode assignments
 ```
 
 ## Architecture
@@ -37,8 +31,8 @@ Bulk RNA-seq FASTQs (N donors)          Pooled snRNA-seq FASTQs
 | Orchestration | Nextflow DSL2 |
 | Cloud compute | AWS Batch |
 | Storage | Amazon S3 (Fusion filesystem) |
-| Containers | Docker (Wave for pull-time building) |
-| Monitoring | Seqera Platform (Tower) |
+| Containers | Docker (Wave) |
+| Monitoring | Seqera Platform |
 | Event trigger | S3 + Lambda → Seqera API *(planned)* |
 
 ## Pipeline Phases
@@ -60,9 +54,9 @@ HB_patient2,s3://bucket/inputs/bulk_rna/HB_patient2/,bulk_rna,
 pooled_liver,s3://bucket/inputs/singlecell/pooled_liver/,singlecell,8000
 ```
 
-- `bulk_rna` rows are routed to `GENOTYPE_CALLING`
-- `singlecell` rows are routed to `SINGLECELL_PREP`
-- Number of donors (`n_donors`) is inferred from the number of `bulk_rna` rows
+- `bulk_rna` rows → `GENOTYPE_CALLING`
+- `singlecell` rows → `SINGLECELL_PREP`
+- Number of donors inferred from number of `bulk_rna` rows
 
 ## Quick Start
 
@@ -84,15 +78,7 @@ nextflow run main.nf \
 | Cell Ranger | `cellranger:7.2.0` | Private ECR only |
 | Demuxafy tools | `demuxafy:2.0.1` | Private ECR only |
 
-### Cell Ranger (licensing)
-Cell Ranger is a commercial tool (10x Genomics EULA) and cannot be redistributed publicly.
-Build the image locally using `docker/cellranger/Dockerfile` and push to a private ECR repository.
-See [`docker/cellranger/README.md`](docker/cellranger/README.md) for step-by-step instructions.
-
-### Demuxafy (Singularity → Docker conversion)
-Demuxafy is distributed as a Singularity `.sif` image. For AWS Batch compatibility,
-convert it to Docker using `singularity build --docker-daemon` and push to private ECR.
-See [`docker/demuxafy/README.md`](docker/demuxafy/README.md) for instructions.
+See `docker/cellranger/README.md` and `docker/demuxafy/README.md` for build instructions.
 
 ## S3 Layout
 
@@ -111,32 +97,19 @@ s3://ngs-demux-pipeline/
     └── {run_id}/
 ```
 
-> The `inputs/` prefix is designed as an S3 event trigger target for future Lambda-based
-> pipeline automation via the Seqera Platform API.
-
-## Comparison: HPC vs Cloud
+## HPC vs Cloud
 
 | Aspect | UCSF HPC (SGE) | This pipeline (AWS Batch) |
 |---|---|---|
-| Job scheduling | `#$ -t 1-N` array jobs | Nextflow channels (automatic) |
+| Job scheduling | `#$ -t 1-N` array jobs | Nextflow channels |
 | Containers | Singularity modules | Docker (Wave) |
-| Storage | `/wynton/scratch` | S3 + Fusion filesystem |
-| Monitoring | qstat / log files | Seqera Platform dashboard |
-| Scalability | Fixed cluster allocation | On-demand, auto-scaled |
-| Reproducibility | Module versions | Container image tags |
-
-## Skills Demonstrated
-
-- Nextflow DSL2 pipeline development (subworkflows, modules, channels)
-- Cloud-native bioinformatics on AWS Batch + S3 + Seqera Platform
-- Multi-tool ensemble demultiplexing (Demuxlet, Vireo, Souporcell)
-- GATK variant calling best practices for RNA-seq input
-- Docker containerization + ECR for licensed/Singularity-only tools
-- Event-driven architecture design (S3 → Lambda → Seqera API)
+| Storage | `/wynton/scratch` | S3 + Fusion |
+| Monitoring | qstat / log files | Seqera Platform |
+| Scalability | Fixed cluster | On-demand |
 
 ## References
 
 - [Demuxafy documentation](https://demultiplexing-doublet-detecting-docs.readthedocs.io)
-- [Nextflow DSL2 documentation](https://nextflow.io/docs/latest/)
+- [Nextflow DSL2](https://nextflow.io/docs/latest/)
 - [GATK RNA-seq variant calling best practices](https://gatk.broadinstitute.org/hc/en-us/articles/360035531192)
 - [Seqera Platform](https://seqera.io)

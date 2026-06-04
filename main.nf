@@ -8,26 +8,25 @@ nextflow.enable.dsl = 2
 // using bulk RNA-seq or WGS/WES for genotype calling.
 //
 // Subworkflows:
-//   GENOTYPE_CALLING  - bulk RNA-seq/WGS → per-sample VCFs → merged VCF
-//   SINGLECELL_PREP   - pooled snRNA-seq FASTQs → BAM + barcodes (Cell Ranger)
+//   GENOTYPE_CALLING  - bulk RNA-seq → per-sample VCFs → merged VCF
+//   SINGLECELL_PREP   - pooled snRNA-seq FASTQs → BAM + barcodes
 //   DEMULTIPLEXING    - merged VCF + snRNA BAM → donor assignments
-//                       (Demuxlet, Vireo, Souporcell)
 // ============================================================
 
-include { GENOTYPE_CALLING  } from './subworkflows/genotype_calling'
-include { SINGLECELL_PREP   } from './subworkflows/singlecell_prep'
-include { DEMULTIPLEXING    } from './subworkflows/demultiplexing'
+include { GENOTYPE_CALLING } from './subworkflows/genotype_calling'
+include { SINGLECELL_PREP  } from './subworkflows/singlecell_prep'
+include { DEMULTIPLEXING   } from './subworkflows/demultiplexing'
 
 // ------------------------------------------------------------
-// Parameter defaults (override via nextflow.config or CLI)
+// Parameter defaults
 // ------------------------------------------------------------
-params.samplesheet      = "${projectDir}/assets/samplesheet.csv"
-params.genome_fasta     = null
-params.genome_gtf       = null
-params.n_donors         = null   // inferred from bulk samples if null
-params.outdir           = "results"
-params.star_index       = null   // supply pre-built index to skip STAR_INDEX
-params.help             = false
+params.samplesheet  = "${projectDir}/assets/samplesheet.csv"
+params.genome_fasta = null
+params.genome_gtf   = null
+params.n_donors     = null
+params.outdir       = "results"
+params.star_index   = null
+params.help         = false
 
 // ------------------------------------------------------------
 // Help message
@@ -50,7 +49,7 @@ if (params.help) {
         --genome_gtf      Path to reference genome GTF
 
     Optional:
-        --n_donors        Number of pooled donors (default: inferred from bulk samples)
+        --n_donors        Number of pooled donors (default: inferred from bulk rows)
         --star_index      Path to pre-built STAR index (skips STAR_INDEX step)
         --outdir          Output directory (default: results)
     """.stripIndent()
@@ -64,30 +63,27 @@ if (!params.genome_fasta) error "ERROR: --genome_fasta is required"
 if (!params.genome_gtf)   error "ERROR: --genome_gtf is required"
 
 // ------------------------------------------------------------
-// Parse samplesheet → two channels
+// Parse samplesheet into two channels
 // ------------------------------------------------------------
 Channel
     .fromPath(params.samplesheet, checkIfExists: true)
     .splitCsv(header: true, strip: true)
     .branch {
-        bulk:        it.data_type == 'bulk_rna'
-        singlecell:  it.data_type == 'singlecell'
+        bulk:       it.data_type == 'bulk_rna'
+        singlecell: it.data_type == 'singlecell'
     }
     .set { samples }
 
-// Bulk: emit [sample_id, fastq_dir] tuples
 ch_bulk = samples.bulk.map { row ->
     def fastq_dir = file(row.fastq_dir, checkIfExists: true)
     [ row.sample_id, fastq_dir ]
 }
 
-// Single-cell: emit [sample_id, fastq_dir, expected_cells] tuple (one row)
 ch_singlecell = samples.singlecell.map { row ->
     def fastq_dir = file(row.fastq_dir, checkIfExists: true)
     [ row.sample_id, fastq_dir, row.expected_cells as Integer ]
 }
 
-// Reference files
 ch_fasta = Channel.fromPath(params.genome_fasta, checkIfExists: true)
 ch_gtf   = Channel.fromPath(params.genome_gtf,   checkIfExists: true)
 
@@ -124,9 +120,9 @@ workflow.onComplete {
     log.info """
     =========================================
     Pipeline complete!
-    Status    : ${workflow.success ? 'SUCCESS' : 'FAILED'}
-    Output    : ${params.outdir}
-    Duration  : ${workflow.duration}
+    Status   : ${workflow.success ? 'SUCCESS' : 'FAILED'}
+    Output   : ${params.outdir}
+    Duration : ${workflow.duration}
     =========================================
     """.stripIndent()
 }
