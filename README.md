@@ -7,21 +7,7 @@ A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled sin
 ## Overview
 
 ```
-Bulk RNA-seq FASTQs (N donors)          Pooled snRNA-seq FASTQs
-         |                                        |
-         v                                        v
-   STAR alignment                         Cell Ranger count
-   GATK variant calling                         |
-   bcftools merge                         BAM + barcodes
-         |                                        |
-         +------------------+---------------------+
-                            |
-                  Demuxafy ensemble
-              +----------+-------+-----------+
-           Demuxlet     Vireo   Souporcell
-              +----------+-------+-----------+
-                            |
-                   Barcode assignments
+![Pipeline overview](assets/workflow.png)
 ```
 
 ## Architecture
