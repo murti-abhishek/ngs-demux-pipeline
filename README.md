@@ -6,9 +6,7 @@ A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled sin
 
 ## Overview
 
-```
 ![Pipeline overview](assets/workflow.png)
-```
 
 ## Architecture
 
