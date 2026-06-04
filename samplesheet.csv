@@ -1,0 +1,6 @@
+sample_id,fastq_dir,data_type,expected_cells
+HB_patient1,s3://ngs-demux-pipeline/inputs/bulk_rna/HB_patient1/,bulk_rna,
+HB_patient2,s3://ngs-demux-pipeline/inputs/bulk_rna/HB_patient2/,bulk_rna,
+HB_patient3,s3://ngs-demux-pipeline/inputs/bulk_rna/HB_patient3/,bulk_rna,
+HB_patient4,s3://ngs-demux-pipeline/inputs/bulk_rna/HB_patient4/,bulk_rna,
+pooled_liver,s3://ngs-demux-pipeline/inputs/singlecell/pooled_liver/,singlecell,8000
