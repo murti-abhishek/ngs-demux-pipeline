@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 LABEL maintainer="Abhishek Murti"
-LABEL description="STAR 2.7.11b + GATK 4.6.2.0 + samtools for bulk RNA-seq alignment and variant calling"
+LABEL description="STAR 2.7.11b + GATK 4.6.2.0 + samtools 1.21 + bcftools for bulk RNA-seq alignment and variant calling"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV STAR_VERSION=2.7.11b
@@ -9,7 +9,7 @@ ENV GATK_VERSION=4.6.2.0
 ENV SAMTOOLS_VERSION=1.21
 
 # ------------------------------------------------------------
-# System dependencies
+# System dependencies + bcftools (apt package)
 # ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     wget \
@@ -27,10 +27,11 @@ RUN apt-get update && apt-get install -y \
     openjdk-17-jre-headless \
     python3 \
     python-is-python3 \
+    bcftools \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
-# samtools
+# samtools (build from source to pin version)
 # ------------------------------------------------------------
 RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 \
     && tar -xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 \
@@ -64,6 +65,7 @@ RUN wget -q https://github.com/broadinstitute/gatk/releases/download/${GATK_VERS
 # ------------------------------------------------------------
 RUN STAR --version \
     && samtools --version | head -1 \
-    && gatk --version
+    && gatk --version \
+    && bcftools --version | head -1
 
 WORKDIR /data

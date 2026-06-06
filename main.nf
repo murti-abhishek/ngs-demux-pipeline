@@ -4,13 +4,6 @@ nextflow.enable.dsl = 2
 
 // ============================================================
 // ngs-demux-pipeline | main.nf
-// Genetic demultiplexing of pooled single-nuclei RNA-seq data
-// using bulk RNA-seq or WGS/WES for genotype calling.
-//
-// Subworkflows:
-//   GENOTYPE_CALLING  - bulk RNA-seq → per-sample VCFs → merged VCF
-//   SINGLECELL_PREP   - pooled snRNA-seq FASTQs → BAM + barcodes
-//   DEMULTIPLEXING    - merged VCF + snRNA BAM → donor assignments
 // ============================================================
 
 include { GENOTYPE_CALLING } from './subworkflows/genotype_calling'
@@ -21,11 +14,11 @@ include { DEMULTIPLEXING   } from './subworkflows/demultiplexing'
 // Parameter defaults
 // ------------------------------------------------------------
 params.samplesheet  = "${projectDir}/assets/samplesheet.csv"
-params.genome_fasta = null
-params.genome_gtf   = null
+params.star_index   = null   // s3://.../refdata-gex-GRCh38-2020-A/star/
+params.genome_fasta = null   // s3://.../refdata-gex-GRCh38-2020-A/fasta/genome.fa
+params.ref_dir      = null   // s3://.../refdata-gex-GRCh38-2020-A/ (for Cell Ranger)
 params.n_donors     = null
 params.outdir       = "results"
-params.star_index   = null
 params.help         = false
 
 // ------------------------------------------------------------
@@ -38,20 +31,21 @@ if (params.help) {
     =========================================
     Usage:
         nextflow run main.nf \\
-            --samplesheet assets/samplesheet.csv \\
-            --genome_fasta s3://bucket/reference/genome.fa \\
-            --genome_gtf   s3://bucket/reference/genes.gtf \\
+            --samplesheet  assets/samplesheet.csv \\
+            --star_index   s3://bucket/reference/refdata-gex-GRCh38-2020-A/star/ \\
+            --genome_fasta s3://bucket/reference/refdata-gex-GRCh38-2020-A/fasta/genome.fa \\
+            --ref_dir      s3://bucket/reference/refdata-gex-GRCh38-2020-A/ \\
             --outdir       s3://bucket/outputs/run_001
 
     Required:
-        --samplesheet     Path to CSV (see assets/samplesheet.csv for schema)
-        --genome_fasta    Path to reference genome FASTA
-        --genome_gtf      Path to reference genome GTF
+        --samplesheet   Path to CSV (see assets/samplesheet.csv for schema)
+        --star_index    Path to pre-built STAR index directory
+        --genome_fasta  Path to genome FASTA (genome.fa.fai and genome.dict must be alongside it)
+        --ref_dir       Path to full 10x reference directory (for Cell Ranger)
 
     Optional:
-        --n_donors        Number of pooled donors (default: inferred from bulk rows)
-        --star_index      Path to pre-built STAR index (skips STAR_INDEX step)
-        --outdir          Output directory (default: results)
+        --n_donors      Number of pooled donors (default: inferred from bulk rows)
+        --outdir        Output directory (default: results)
     """.stripIndent()
     System.exit(0)
 }
@@ -59,11 +53,12 @@ if (params.help) {
 // ------------------------------------------------------------
 // Validate required params
 // ------------------------------------------------------------
+if (!params.star_index)   error "ERROR: --star_index is required"
 if (!params.genome_fasta) error "ERROR: --genome_fasta is required"
-if (!params.genome_gtf)   error "ERROR: --genome_gtf is required"
+if (!params.ref_dir)      error "ERROR: --ref_dir is required"
 
 // ------------------------------------------------------------
-// Parse samplesheet into two channels
+// Parse samplesheet
 // ------------------------------------------------------------
 Channel
     .fromPath(params.samplesheet, checkIfExists: true)
@@ -75,37 +70,40 @@ Channel
     .set { samples }
 
 ch_bulk = samples.bulk.map { row ->
-    def fastq_dir = file(row.fastq_dir, checkIfExists: true)
-    [ row.sample_id, fastq_dir ]
+    [ row.sample_id, file(row.fastq_dir, checkIfExists: true) ]
 }
 
 ch_singlecell = samples.singlecell.map { row ->
-    def fastq_dir = file(row.fastq_dir, checkIfExists: true)
-    [ row.sample_id, fastq_dir, row.expected_cells as Integer ]
+    [ row.sample_id, file(row.fastq_dir, checkIfExists: true), row.expected_cells as Integer ]
 }
 
-ch_fasta = Channel.fromPath(params.genome_fasta, checkIfExists: true)
-ch_gtf   = Channel.fromPath(params.genome_gtf,   checkIfExists: true)
+// Reference channels
+ch_star_index  = Channel.fromPath(params.star_index,   checkIfExists: true)
+ch_fasta       = Channel.fromPath(params.genome_fasta, checkIfExists: true)
+ch_fasta_fai   = Channel.fromPath("${params.genome_fasta}.fai", checkIfExists: true)
+ch_fasta_dict  = Channel.fromPath(
+    params.genome_fasta.replace('.fa', '.dict'), checkIfExists: true
+)
+ch_ref_dir     = Channel.fromPath(params.ref_dir, checkIfExists: true)
 
 // ------------------------------------------------------------
 // Workflow
 // ------------------------------------------------------------
 workflow {
 
-    // 1. Genotype calling: bulk RNA-seq FASTQs → merged VCF
     GENOTYPE_CALLING(
         ch_bulk,
+        ch_star_index,
         ch_fasta,
-        ch_gtf
+        ch_fasta_fai,
+        ch_fasta_dict
     )
 
-    // 2. Single-cell prep: pooled snRNA FASTQs → BAM + barcodes
     SINGLECELL_PREP(
         ch_singlecell,
-        ch_fasta
+        ch_ref_dir
     )
 
-    // 3. Demultiplexing: merged VCF + snRNA BAM → donor assignments
     DEMULTIPLEXING(
         GENOTYPE_CALLING.out.merged_vcf,
         SINGLECELL_PREP.out.bam,
