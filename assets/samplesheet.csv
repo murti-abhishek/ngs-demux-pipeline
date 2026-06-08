@@ -3,4 +3,3 @@ sample1,s3://nextflow-scrna-abhishek/ngs-demux/inputs/bulk_rna/sample1/,bulk_rna
 sample2,s3://nextflow-scrna-abhishek/ngs-demux/inputs/bulk_rna/sample2/,bulk_rna,
 sample3,s3://nextflow-scrna-abhishek/ngs-demux/inputs/bulk_rna/sample3/,bulk_rna,
 sample4,s3://nextflow-scrna-abhishek/ngs-demux/inputs/bulk_rna/sample4/,bulk_rna,
-pooled_liver,s3://nextflow-scrna-abhishek/ngs-demux/inputs/singlecell/pooled_liver/,singlecell,8000

@@ -1,7 +1,6 @@
 // modules/star_align.nf
 // Align bulk RNA-seq FASTQs with STAR using the pre-built 10x index.
-// Two-pass mode disabled — index already contains splice junctions from Cell Ranger build.
-// Outputs coordinate-sorted BAM ready for GATK downstream.
+// Takes explicit R1/R2 file paths resolved in main.nf.
 
 process STAR_ALIGN {
     label 'star_gatk'
@@ -13,8 +12,8 @@ process STAR_ALIGN {
         pattern: "*.{bam,bai,Log.final.out}"
 
     input:
-    tuple val(sample_id), path(fastq_dir)
-    path  star_index   // pre-built star/ directory from 10x reference
+    tuple val(sample_id), path(r1), path(r2)
+    path  star_index
 
     output:
     tuple val(sample_id), path("${sample_id}_Aligned.sortedByCoord.out.bam"),     emit: bam
@@ -23,8 +22,6 @@ process STAR_ALIGN {
 
     script:
     def threads = task.cpus
-    def r1 = file("${fastq_dir}/*_R1_001.fastq.gz")
-    def r2 = file("${fastq_dir}/*_R2_001.fastq.gz")
     """
     STAR \
         --runMode alignReads \

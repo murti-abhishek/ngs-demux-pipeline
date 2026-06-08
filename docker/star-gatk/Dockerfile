@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 LABEL maintainer="Abhishek Murti"
-LABEL description="STAR 2.7.11b + GATK 4.6.2.0 + samtools 1.21 + bcftools for bulk RNA-seq alignment and variant calling"
+LABEL description="STAR 2.7.11b + GATK 4.6.2.0 + samtools 1.21 + bcftools + AWS CLI v2"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV STAR_VERSION=2.7.11b
@@ -9,7 +9,7 @@ ENV GATK_VERSION=4.6.2.0
 ENV SAMTOOLS_VERSION=1.21
 
 # ------------------------------------------------------------
-# System dependencies + bcftools (apt package)
+# System dependencies + bcftools
 # ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     wget \
@@ -31,7 +31,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
-# samtools (build from source to pin version)
+# AWS CLI v2
+# ------------------------------------------------------------
+RUN curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip -q awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws/
+
+# ------------------------------------------------------------
+# samtools
 # ------------------------------------------------------------
 RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 \
     && tar -xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 \
@@ -43,7 +51,7 @@ RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VE
     && rm -rf samtools-${SAMTOOLS_VERSION} samtools-${SAMTOOLS_VERSION}.tar.bz2
 
 # ------------------------------------------------------------
-# STAR
+# STAR 2.7.11b — matches custom-built index from Wynton
 # ------------------------------------------------------------
 RUN wget -q https://github.com/alexdobin/STAR/releases/download/${STAR_VERSION}/STAR_${STAR_VERSION}.zip \
     && unzip -q STAR_${STAR_VERSION}.zip \
@@ -66,6 +74,7 @@ RUN wget -q https://github.com/broadinstitute/gatk/releases/download/${GATK_VERS
 RUN STAR --version \
     && samtools --version | head -1 \
     && gatk --version \
-    && bcftools --version | head -1
+    && bcftools --version | head -1 \
+    && aws --version
 
 WORKDIR /data

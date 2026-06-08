@@ -3,9 +3,8 @@
 // RNA-seq mode flags:
 //   --dont-use-soft-clipped-bases
 //   --standard-min-confidence-threshold-for-calling 20
-//
-// genome.fa.fai and genome.dict are already present in the 10x reference
-// fasta/ directory — no need to generate them here.
+// genome.fa.fai already exists in the 10x reference.
+// genome.dict is generated at runtime (not included in 10x reference tarball).
 
 process GATK_HAPLOTYPECALLER {
     label 'star_gatk'
@@ -17,9 +16,8 @@ process GATK_HAPLOTYPECALLER {
 
     input:
     tuple val(sample_id), path(bam), path(bai)
-    path  fasta      // genome.fa
-    path  fasta_fai  // genome.fa.fai  (staged alongside fasta)
-    path  fasta_dict // genome.dict    (staged alongside fasta)
+    path  fasta
+    path  fasta_fai
 
     output:
     tuple val(sample_id), path("${sample_id}.vcf.gz"),     emit: vcf
@@ -27,6 +25,9 @@ process GATK_HAPLOTYPECALLER {
 
     script:
     """
+    # Generate sequence dictionary (not included in 10x reference)
+    gatk CreateSequenceDictionary -R ${fasta}
+
     gatk HaplotypeCaller \
         -R ${fasta} \
         -I ${bam} \
