@@ -1,5 +1,6 @@
 // modules/gatk_markduplicates.nf
-// Mark PCR duplicates and index the output BAM for HaplotypeCaller.
+// Mark PCR duplicates with GATK MarkDuplicates.
+// Index the output BAM for HaplotypeCaller.
 
 process GATK_MARKDUPLICATES {
     label 'star_gatk'
@@ -18,9 +19,16 @@ process GATK_MARKDUPLICATES {
     path "${sample_id}_metrics.txt",                           emit: metrics
 
     script:
-    // TODO Phase B
     """
-    echo "GATK_MARKDUPLICATES stub for ${sample_id} — Phase B"
-    touch ${sample_id}_dedup.bam ${sample_id}_dedup.bam.bai ${sample_id}_metrics.txt
+    gatk MarkDuplicates \
+        -I ${bam} \
+        -O ${sample_id}_dedup.bam \
+        -M ${sample_id}_metrics.txt \
+        --CREATE_INDEX true
+
+    # Rename the index to .bai (GATK creates .bam.bai by default)
+    if [ -f ${sample_id}_dedup.bai ]; then
+        mv ${sample_id}_dedup.bai ${sample_id}_dedup.bam.bai
+    fi
     """
 }
