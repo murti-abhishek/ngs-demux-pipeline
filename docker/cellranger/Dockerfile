@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-ARG CELLRANGER_VERSION=7.2.0
+ARG CELLRANGER_VERSION=10.0.0
 
 # Download Cell Ranger tarball before building:
 #   https://www.10xgenomics.com/support/software/cell-ranger/downloads
@@ -14,5 +14,7 @@ RUN tar -xzf /tmp/cellranger-${CELLRANGER_VERSION}.tar.gz -C /opt/ \
     && rm /tmp/cellranger-${CELLRANGER_VERSION}.tar.gz
 
 ENV PATH="/opt/cellranger-${CELLRANGER_VERSION}:${PATH}"
+
+RUN cellranger --version
 
 ENTRYPOINT ["cellranger"]
