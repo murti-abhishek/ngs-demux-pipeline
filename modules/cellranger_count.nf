@@ -1,11 +1,3 @@
-// modules/cellranger_count.nf
-// Run Cell Ranger count on pooled snRNA-seq FASTQs.
-//
-// LICENSING NOTE:
-//   Cell Ranger is a commercial tool (10x Genomics EULA).
-//   The container image is stored in private ECR only.
-//   See docker/cellranger/README.md for build instructions.
-
 process CELLRANGER_COUNT {
     label 'cellranger'
     label 'process_high'
@@ -19,18 +11,20 @@ process CELLRANGER_COUNT {
     path  ref_dir
 
     output:
-    tuple val(sample_id), path("${sample_id}/outs/possorted_genome_bam.bam"),                        emit: bam
-    tuple val(sample_id), path("${sample_id}/outs/possorted_genome_bam.bam.bai"),                    emit: bai
-    tuple val(sample_id), path("${sample_id}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"),      emit: barcodes
+    tuple val(sample_id), path("${sample_id}_out/outs/possorted_genome_bam.bam"),                   emit: bam
+    tuple val(sample_id), path("${sample_id}_out/outs/possorted_genome_bam.bam.bai"),               emit: bai
+    tuple val(sample_id), path("${sample_id}_out/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"), emit: barcodes
 
     script:
     """
     cellranger count \
-        --id ${sample_id} \
+        --id ${sample_id}_out \
         --transcriptome ${ref_dir} \
         --fastqs ${fastq_dir} \
         --sample ${sample_id} \
-        --expected-cells ${expected_cells} \
+        --expect-cells ${expected_cells} \
+        --create-bam true \
+        --disable-ui \
         --localcores ${task.cpus} \
         --localmem ${task.memory.toGiga()}
     """
