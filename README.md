@@ -25,8 +25,8 @@ A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled sin
 |---|---|---|
 | A | Reference staging to S3 + Docker images | ✅ Complete |
 | B | GENOTYPE_CALLING (STAR → GATK → bcftools) | ✅ Complete |
-| C | SINGLECELL_PREP (Cell Ranger) | ⬜ Planned |
-| D | DEMULTIPLEXING (Demuxlet + Vireo + Souporcell) | ⬜ Planned |
+| C | SINGLECELL_PREP (Cell Ranger) | ✅ Complete |
+| D | DEMULTIPLEXING (Demuxlet + Vireo + Souporcell) | 🔜 In progress |
 | E | End-to-end integration + event-driven trigger | ⬜ Planned |
 
 ## Samplesheet Format
@@ -35,7 +35,7 @@ A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled sin
 sample_id,fastq_dir,data_type,expected_cells
 sample1,s3://bucket/inputs/bulk_rna/sample1/,bulk_rna,
 sample2,s3://bucket/inputs/bulk_rna/sample2/,bulk_rna,
-pooled_liver,s3://bucket/inputs/singlecell/pooled_liver/,singlecell,8000
+pooled_liver,s3://bucket/inputs/singlecell/pooled_liver/,singlecell,5000
 ```
 
 - `bulk_rna` rows → `GENOTYPE_CALLING` (runs in parallel across all samples)
@@ -50,7 +50,6 @@ nextflow run main.nf \
     --star_index   s3://nextflow-scrna-abhishek/ngs-demux/reference/star_index_2.7.11b/ \
     --genome_fasta s3://nextflow-scrna-abhishek/ngs-demux/reference/refdata-gex-GRCh38-2020-A/fasta/genome.fa \
     --ref_dir      s3://nextflow-scrna-abhishek/ngs-demux/reference/refdata-gex-GRCh38-2020-A/ \
-    --outdir       s3://nextflow-scrna-abhishek/ngs-demux/outputs/run_001 \
     -profile batch,tower \
     -w s3://nextflow-scrna-abhishek/ngs-demux/work
 ```
@@ -60,8 +59,8 @@ nextflow run main.nf \
 | Process | Image | Registry |
 |---|---|---|
 | STAR 2.7.11b, GATK 4.6.2.0, samtools 1.21, bcftools, AWS CLI v2 | `murtiabhishek/star-gatk:1.4.0` | Docker Hub |
-| Cell Ranger | `cellranger:7.2.0` | Private ECR only |
-| Demuxafy (Demuxlet, Vireo, Souporcell) | `demuxafy:3.0.0` | Private ECR only |
+| Cell Ranger 10.0.0 | `267643289527.dkr.ecr.us-east-1.amazonaws.com/cellranger:10.0.2` | Private ECR only |
+| Demuxafy 3.0.0 (Demuxlet, Vireo, Souporcell) | `267643289527.dkr.ecr.us-east-1.amazonaws.com/demuxafy:3.0.0` | Private ECR only *(Phase D)* |
 
 See `docker/cellranger/README.md` and `docker/demuxafy/README.md` for build instructions.
 
@@ -79,13 +78,13 @@ s3://nextflow-scrna-abhishek/ngs-demux/reference/
 │   ├── genes/
 │   │   └── genes.gtf
 │   └── star/                # Cell Ranger pre-built index (used by Cell Ranger only)
-└── star_index_2.7.11b/      # custom STAR index built with STAR 2.7.11b on Wynton
-                             # used by STAR_ALIGN for bulk RNA-seq
+└── star_index_2.7.11b/      # custom STAR index built with STAR 2.7.11b
+                             # used by STAR_ALIGN for bulk RNA-seq variant calling
 ```
 
 > **Note on STAR index compatibility:** The Cell Ranger pre-built `star/` index is incompatible
-> with standalone STAR due to internal version differences. A custom index was built with
-> STAR 2.7.11b using the same FASTA and GTF, ensuring consistency across both alignment arms.
+> with standalone STAR. A custom index was built with STAR 2.7.11b using the same FASTA and GTF,
+> ensuring reference consistency across both alignment arms of the pipeline.
 
 ## S3 Layout
 
@@ -102,7 +101,15 @@ s3://nextflow-scrna-abhishek/ngs-demux/
 │       └── pooled_liver/
 ├── work/                    # Nextflow work directory
 └── outputs/
-    └── {run_id}/
+    ├── star_align/          # per-sample BAMs
+    ├── markduplicates/      # duplicate metrics
+    ├── vcfs/                # per-sample VCFs
+    ├── merged_vcf/          # merged multi-sample VCF (input to Demuxafy)
+    ├── cellranger/          # Cell Ranger outputs (BAM + barcodes)
+    ├── pipeline_report.html
+    ├── pipeline_timeline.html
+    ├── pipeline_trace.txt
+    └── pipeline_dag.html
 ```
 
 ## HPC vs Cloud
@@ -114,6 +121,7 @@ s3://nextflow-scrna-abhishek/ngs-demux/
 | Storage | `/wynton/scratch` | S3 |
 | Monitoring | qstat / log files | Seqera Platform |
 | Scalability | Fixed cluster | On-demand |
+| Failure handling | Manual resubmission | Automatic retry with `-resume` |
 
 ## References
 
