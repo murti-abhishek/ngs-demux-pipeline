@@ -1,8 +1,3 @@
-// modules/demuxlet.nf
-// Genotype-based demultiplexing with Demuxlet (popscle).
-// Step 1: popscle_pileup.py — pileup from BAM + VCF
-// Step 2: popscle demuxlet — assign barcodes to donors
-
 process DEMUXLET {
     label 'demuxafy'
     label 'process_medium'
@@ -21,13 +16,11 @@ process DEMUXLET {
     path "demuxlet/", emit: results
 
     script:
-    def field      = params.demuxlet_field ?: 'GT'
-    def threads    = task.cpus
+    def field = params.demuxlet_field ?: 'GT'
     """
     mkdir -p demuxlet
 
-    # Step 1: pileup
-    popscle_pileup.py \
+    popscle dsc-pileup \
         --sam ${bam} \
         --vcf ${merged_vcf} \
         --group-list ${barcodes} \
@@ -35,17 +28,11 @@ process DEMUXLET {
         --tag-UMI UB \
         --out demuxlet/pileup
 
-    # Step 2: demuxlet
     popscle demuxlet \
         --plp demuxlet/pileup \
         --vcf ${merged_vcf} \
         --field ${field} \
         --group-list ${barcodes} \
-        --out demuxlet/demuxlet \
-        --r2-info INFO
-
-    # Summary
-    bash Demuxlet_summary.sh demuxlet/demuxlet.best \
-        > demuxlet/demuxlet_summary.tsv || true
+        --out demuxlet/demuxlet
     """
 }

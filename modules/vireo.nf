@@ -1,9 +1,3 @@
-// modules/vireo.nf
-// Genotype-guided demultiplexing with Vireo.
-// Step 1: cellsnp_pileup.py — pileup SNPs in each barcode
-// Step 2: bcftools view — subset VCF to target SNPs
-// Step 3: vireo — assign barcodes to donors
-
 process VIREO {
     label 'demuxafy'
     label 'process_medium'
@@ -27,8 +21,7 @@ process VIREO {
     """
     mkdir -p vireo
 
-    # Step 1: cellsnp-lite pileup
-    cellsnp_pileup.py \
+    cellsnp-lite \
         -s ${bam} \
         -b ${barcodes} \
         -O vireo \
@@ -40,16 +33,13 @@ process VIREO {
         --UMItag UB \
         --gzip
 
-    # bgzip the base VCF for vireo
     bgzip vireo/cellSNP.base.vcf
 
-    # Step 2: subset VCF to SNPs found in pileup
     bcftools view ${merged_vcf} \
         -R vireo/cellSNP.base.vcf.gz \
         -Oz \
         -o vireo/donor_subset.vcf.gz
 
-    # Step 3: vireo
     vireo \
         -c vireo \
         -d vireo/donor_subset.vcf.gz \
