@@ -3,12 +3,10 @@
 //
 // Merged VCF + snRNA BAM → donor barcode assignments
 //
-// All three Demuxafy tools run in parallel on the same inputs:
+// All three Demuxafy tools run in parallel:
 //   1. DEMUXLET    popscle pileup → demuxlet
-//   2. VIREO       cellsnp-lite → bcftools subset → vireo
+//   2. VIREO       cellsnp-lite → bcftools → vireo
 //   3. SOUPORCELL  souporcell → Assign_Indiv_by_Geno.R
-//
-// Container: Demuxafy .sif converted to Docker — see docker/demuxafy/README.md
 // ============================================================
 
 include { DEMUXLET   } from '../modules/demuxlet'
@@ -19,16 +17,46 @@ workflow DEMULTIPLEXING {
 
     take:
     ch_merged_vcf  // merged VCF from GENOTYPE_CALLING
+    ch_merged_tbi  // VCF index
     ch_bam         // possorted_genome_bam.bam from SINGLECELL_PREP
-    ch_barcodes    // barcodes.tsv from SINGLECELL_PREP
+    ch_bai         // BAM index
+    ch_barcodes    // barcodes.tsv.gz from SINGLECELL_PREP
+    ch_fasta       // genome.fa (needed by Souporcell)
+    ch_n_donors    // number of donors (integer)
 
     main:
 
-    // TODO Phase D: run all three tools in parallel
-    // DEMUXLET(ch_merged_vcf, ch_bam, ch_barcodes)
-    // VIREO(ch_merged_vcf, ch_bam, ch_barcodes)
-    // SOUPORCELL(ch_merged_vcf, ch_bam, ch_barcodes)
+    // All three tools run in parallel on the same inputs
+    DEMUXLET(
+        ch_merged_vcf,
+        ch_merged_tbi,
+        ch_bam,
+        ch_bai,
+        ch_barcodes,
+        ch_n_donors
+    )
+
+    VIREO(
+        ch_merged_vcf,
+        ch_merged_tbi,
+        ch_bam,
+        ch_bai,
+        ch_barcodes,
+        ch_n_donors
+    )
+
+    SOUPORCELL(
+        ch_merged_vcf,
+        ch_merged_tbi,
+        ch_bam,
+        ch_bai,
+        ch_barcodes,
+        ch_fasta,
+        ch_n_donors
+    )
 
     emit:
-    assignments = Channel.empty()   // placeholder until Phase D
+    demuxlet    = DEMUXLET.out.results
+    vireo       = VIREO.out.results
+    souporcell  = SOUPORCELL.out.results
 }

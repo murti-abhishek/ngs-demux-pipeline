@@ -2,6 +2,10 @@
 
 nextflow.enable.dsl = 2
 
+// ============================================================
+// ngs-demux-pipeline | main.nf
+// ============================================================
+
 include { GENOTYPE_CALLING } from './subworkflows/genotype_calling'
 include { SINGLECELL_PREP  } from './subworkflows/singlecell_prep'
 include { DEMULTIPLEXING   } from './subworkflows/demultiplexing'
@@ -11,7 +15,7 @@ params.star_index   = null
 params.genome_fasta = null
 params.ref_dir      = null
 params.n_donors     = null
-params.outdir       = "results"
+params.outdir       = "s3://nextflow-scrna-abhishek/ngs-demux/outputs"
 params.help         = false
 
 if (params.help) {
@@ -25,13 +29,25 @@ if (params.help) {
             --star_index   s3://bucket/reference/star_index_2.7.11b/ \\
             --genome_fasta s3://bucket/reference/refdata-gex-GRCh38-2020-A/fasta/genome.fa \\
             --ref_dir      s3://bucket/reference/refdata-gex-GRCh38-2020-A/ \\
+            --n_donors     4 \\
             --outdir       s3://bucket/outputs/run_001
+
+    Required:
+        --samplesheet   Path to CSV (see assets/samplesheet.csv for schema)
+        --star_index    Path to pre-built STAR index directory
+        --genome_fasta  Path to genome FASTA
+        --ref_dir       Path to full 10x reference directory (for Cell Ranger)
+        --n_donors      Number of pooled donors
+
+    Optional:
+        --outdir        Output directory (default: S3)
     """.stripIndent()
     System.exit(0)
 }
 
 if (!params.star_index)   error "ERROR: --star_index is required"
 if (!params.genome_fasta) error "ERROR: --genome_fasta is required"
+if (!params.n_donors)     error "ERROR: --n_donors is required"
 
 workflow {
 
@@ -44,12 +60,11 @@ workflow {
         }
         .set { samples }
 
-    // Pass R1/R2 as strings — Nextflow stages them when the job runs on Batch
     ch_bulk = samples.bulk.map { row ->
         def sample_id = row.sample_id
-        def r1 = "${row.fastq_dir}${sample_id}_R1_001.fastq.gz"
-        def r2 = "${row.fastq_dir}${sample_id}_R2_001.fastq.gz"
-        [ sample_id, file(r1), file(r2) ]
+        def r1 = file("${row.fastq_dir}/${sample_id}_R1_001.fastq.gz")
+        def r2 = file("${row.fastq_dir}/${sample_id}_R2_001.fastq.gz")
+        [ sample_id, r1, r2 ]
     }
 
     ch_singlecell = samples.singlecell.map { row ->
@@ -59,10 +74,8 @@ workflow {
     ch_star_index = Channel.value(file(params.star_index))
     ch_fasta      = Channel.value(file(params.genome_fasta))
     ch_fasta_fai  = Channel.value(file("${params.genome_fasta}.fai"))
-
-    ch_ref_dir = params.ref_dir
-        ? Channel.value(file(params.ref_dir))
-        : Channel.empty()
+    ch_ref_dir    = Channel.value(file(params.ref_dir))
+    ch_n_donors   = Channel.value(params.n_donors as Integer)
 
     GENOTYPE_CALLING(
         ch_bulk,
@@ -78,8 +91,12 @@ workflow {
 
     DEMULTIPLEXING(
         GENOTYPE_CALLING.out.merged_vcf,
-        SINGLECELL_PREP.out.bam,
-        SINGLECELL_PREP.out.barcodes
+        GENOTYPE_CALLING.out.merged_tbi,
+        SINGLECELL_PREP.out.bam.map { it[1] },
+        SINGLECELL_PREP.out.bai.map { it[1] },
+        SINGLECELL_PREP.out.barcodes.map { it[1] },
+        ch_fasta,
+        ch_n_donors
     )
 }
 

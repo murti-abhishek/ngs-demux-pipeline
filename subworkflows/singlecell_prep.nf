@@ -18,5 +18,6 @@ workflow SINGLECELL_PREP {
 
     emit:
     bam      = CELLRANGER_COUNT.out.bam
+    bai      = CELLRANGER_COUNT.out.bai
     barcodes = CELLRANGER_COUNT.out.barcodes
 }
