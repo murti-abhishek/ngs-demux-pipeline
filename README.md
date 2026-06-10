@@ -26,7 +26,7 @@ A cloud-native Nextflow DSL2 pipeline for **genetic demultiplexing of pooled sin
 | A | Reference staging to S3 + Docker images | ✅ Complete |
 | B | GENOTYPE_CALLING (STAR → GATK → bcftools) | ✅ Complete |
 | C | SINGLECELL_PREP (Cell Ranger) | ✅ Complete |
-| D | DEMULTIPLEXING (Demuxlet + Vireo + Souporcell) | 🔜 In progress |
+| D | DEMULTIPLEXING (Demuxlet + Vireo + Souporcell) | 🔜 In progress — pending validation with real variant data |
 | E | End-to-end integration + event-driven trigger | ⬜ Planned |
 
 ## Samplesheet Format
