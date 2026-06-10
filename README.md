@@ -60,9 +60,9 @@ nextflow run main.nf \
 |---|---|---|
 | STAR 2.7.11b, GATK 4.6.2.0, samtools 1.21, bcftools, AWS CLI v2 | `murtiabhishek/star-gatk:1.4.0` | Docker Hub |
 | Cell Ranger 10.0.0 | `267643289527.dkr.ecr.us-east-1.amazonaws.com/cellranger:10.0.2` | Private ECR only |
-| Demuxafy 3.0.0 (Demuxlet, Vireo, Souporcell) | `267643289527.dkr.ecr.us-east-1.amazonaws.com/demuxafy:3.0.0` | Private ECR only *(Phase D)* |
+| Demuxlet (popscle), Vireo, cellsnp-lite, Souporcell, bcftools, AWS CLI v2 | `murtiabhishek/demuxafy:1.0.1` | Docker Hub |
 
-See `docker/cellranger/README.md` and `docker/demuxafy/README.md` for build instructions.
+See `docker/cellranger/README.md` for Cell Ranger build instructions.
 
 ## Reference Data
 
