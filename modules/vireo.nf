@@ -33,8 +33,6 @@ process VIREO {
         --UMItag UB \
         --gzip
 
-    bgzip vireo/cellSNP.base.vcf
-
     bcftools view ${merged_vcf} \
         -R vireo/cellSNP.base.vcf.gz \
         -Oz \
